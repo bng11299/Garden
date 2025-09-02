@@ -1,0 +1,226 @@
+
+package com.gradescope.garden;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.util.Scanner;
+
+public class RunGarden {
+    public static void main(String[] args) {
+        if (args.length < 1) {
+            System.out.println("Please provide input filename.");
+            return;
+        }
+
+        String filename = args[0];
+        Garden garden = null;
+
+        try (Scanner fileScanner = new Scanner(new File(filename))) {
+            int rows = 0, cols = 0;
+            // Read rows and cols
+            while (fileScanner.hasNextLine()) {
+                String line = fileScanner.nextLine().trim();
+                if (line.toLowerCase().startsWith("rows:")) {
+                    rows = Integer.parseInt(line.split(":")[1].trim());
+                } else if (line.toLowerCase().startsWith("cols:")) {
+                    cols = Integer.parseInt(line.split(":")[1].trim());
+                }
+                if (rows > 0 && cols > 0) break;
+            }
+
+            if (cols > 16) {
+                System.out.println("Too many plot columns.");
+                return;
+            }
+
+            garden = new Garden(rows, cols);
+
+            //processCommand
+            while (fileScanner.hasNextLine()) {
+                String line = fileScanner.nextLine().trim();
+                if (line.isEmpty()) continue;
+                processCommand(line, garden);
+            }
+        } catch (FileNotFoundException e) {
+            System.out.println("File not found: " + filename);
+        }
+    }
+
+    public static void processCommand(String line, Garden garden) {
+    	
+    	
+    	
+        if (line == null || line.trim().isEmpty()) return;
+
+        String trimmedLine = line.trim();
+
+        int firstSpace = trimmedLine.indexOf(' ');
+        String command;
+        String rest = "";
+        if (firstSpace == -1) {
+            command = trimmedLine.toUpperCase();
+        } else {
+            command = trimmedLine.substring(0, firstSpace).toUpperCase();
+            rest = trimmedLine.substring(firstSpace);
+        }
+
+        if (command.equals("PRINT") || command.equals("GROW") || command.equals("PICK") ||
+            command.equals("CUT") || command.equals("HARVEST")) {
+            System.out.println("> " + command + rest);
+            if (!command.equals("PRINT")) {
+                System.out.println(); // newline for all except print
+            }
+        }
+
+        String[] parts = trimmedLine.split("\\s+");
+
+        try {
+            switch (command) {
+                case "PLANT": {
+                    if (parts.length < 3) break; // invalid, ignore
+                    int[] rc = parseCoordinates(parts[1]);
+                    String plantName = parts[2].toLowerCase();
+                    garden.plant(rc[0], rc[1], plantName);
+                    break;
+                }
+                case "PRINT": {
+                    garden.printGarden();
+                    System.out.println();
+                    break;
+                }
+                case "GROW": {
+                    if (parts.length < 2) break; // invalid
+
+                    int times = Integer.parseInt(parts[1]);
+
+                    if (parts.length == 2) {
+                        garden.growAll(times);
+                    } else if (parts.length == 3) {
+                        String arg = parts[2];
+                        if (arg.startsWith("(") && arg.endsWith(")")) {
+                            int[] rc = parseCoordinates(arg);
+                            garden.growAt(times, rc[0], rc[1]);
+                        } else {
+                            String argLower = arg.toLowerCase();
+                            if (argLower.equals("flower") || argLower.equals("tree") || argLower.equals("vegetable")) {
+                                garden.growClass(times, argLower);
+                            } else {
+                                garden.growType(times, argLower);
+                            }
+                        }
+                    }
+                    break;
+                }
+                case "HARVEST": {
+                    if (parts.length == 1) {
+                        garden.harvest();
+                    } else if (parts.length == 2) {
+                        String arg = parts[1];
+                        if (arg.startsWith("(") && arg.endsWith(")")) {
+                            int[] rc = parseCoordinates(arg);
+                            garden.harvestAt(rc[0], rc[1]);
+                        } else {
+                            garden.harvestType(arg.toLowerCase());
+                        }
+                    }
+                    break;
+                }
+                case "PICK": {
+                    if (parts.length == 1) {
+                        garden.pick();
+                    } else if (parts.length == 2) {
+                        String arg = parts[1];
+                        if (arg.startsWith("(") && arg.endsWith(")")) {
+                            int[] rc = parseCoordinates(arg);
+                            garden.pickAt(rc[0], rc[1]);
+                        } else {
+                            garden.pickType(arg.toLowerCase());
+                        }
+                    }
+                    break;
+                }
+                case "CUT": {
+                    if (parts.length == 1) {
+                        garden.cut();
+                    } else if (parts.length == 2) {
+                        String arg = parts[1];
+                        if (arg.startsWith("(") && arg.endsWith(")")) {
+                            int[] rc = parseCoordinates(arg);
+                            garden.cutAt(rc[0], rc[1]);
+                        } else {
+                            garden.cutType(arg.toLowerCase());
+                        }
+                    }
+                    break;
+                }
+                default:
+                    break;
+            }
+        } catch (Exception e) {
+        }
+    }
+
+
+
+    
+    private static int[] parseCoordinates(String coord) {
+        coord = coord.trim();
+        if (coord.startsWith("(") && coord.endsWith(")")) {
+            coord = coord.substring(1, coord.length() - 1); // remove parentheses
+            String[] parts = coord.split(",");
+            int row = Integer.parseInt(parts[0].trim());
+            int col = Integer.parseInt(parts[1].trim());
+            return new int[]{row, col};
+        }
+        throw new IllegalArgumentException("Invalid coordinates: " + coord);
+    }
+
+    private static void processRemoveCommand(Garden garden, String line, String command) {
+        String[] parts = line.split("\\s+");
+
+        if (parts.length == 1) {
+            System.out.println("> " + command.toUpperCase());
+            switch (command) {
+                case "harvest": garden.harvest(); break;
+                case "pick": garden.pick(); break;
+                case "cut": garden.cut(); break;
+            }
+        } else if (parts.length == 2) {
+            String arg = parts[1];
+            if (arg.startsWith("(")) {
+                int[] rc = parseCoords(arg);
+                System.out.println("> " + command.toUpperCase() + " " + arg);
+                if (rc == null) {
+                    System.out.println("Can't " + command + " there.");
+                    return;
+                }
+                switch (command) {
+                    case "harvest": garden.harvestAt(rc[0], rc[1]); break;
+                    case "pick": garden.pickAt(rc[0], rc[1]); break;
+                    case "cut": garden.cutAt(rc[0], rc[1]); break;
+                }
+            } else {
+                System.out.println("> " + command.toUpperCase() + " " + arg);
+                switch (command) {
+                    case "harvest": garden.harvestType(arg.toLowerCase()); break;
+                    case "pick": garden.pickType(arg.toLowerCase()); break;
+                    case "cut": garden.cutType(arg.toLowerCase()); break;
+                }
+            }
+        }
+    }
+
+    private static int[] parseCoords(String coordString) {
+        try {
+            coordString = coordString.trim();
+            if (!coordString.startsWith("(") || !coordString.endsWith(")")) return null;
+            coordString = coordString.substring(1, coordString.length() - 1);
+            String[] parts = coordString.split(",");
+            if (parts.length != 2) return null;
+            int r = Integer.parseInt(parts[0].trim());
+            int c = Integer.parseInt(parts[1].trim());
+            return new int[]{r, c};
+        } catch (Exception e) {
+            return null;
+        }
+    }
+}
